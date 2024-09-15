@@ -1,7 +1,9 @@
 package main
 
 import (
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/labstack/echo/v4"
+	"github.com/m-row/finder-example/api"
 	"github.com/m-row/finder-example/controller"
 	"github.com/m-row/finder-example/controllers"
 	"github.com/m-row/finder-example/database"
@@ -10,9 +12,9 @@ import (
 
 func main() {
 	e := echo.New()
+	e.HTTPErrorHandler = api.GlobalErrorHandler
 
-	dsn := ""
-	db, err := database.OpenSQLX(dsn)
+	db, err := database.OpenSQLX()
 	if err != nil {
 		e.Logger.Panicf("couldn't open db: %s", err.Error())
 	}
@@ -29,14 +31,9 @@ func main() {
 	v1 := e.Group("/api/v1")
 	rd := &controller.RouterDependencies{
 		E: v1,
-		// Requires: app.requires,
 	}
 
-	ctrls.User.SetAuthRoutes(rd)
-	ctrls.User.SetAdminRoutes(rd)
-	ctrls.User.SetProfileRoutes(rd)
-	ctrls.Role.SetBasicRoutes(rd)
-	ctrls.Permission.SetBasicRoutes(rd)
+	ctrls.Category.SetRoutes(rd)
 
 	e.Logger.Fatal(e.Start(":8000"))
 }

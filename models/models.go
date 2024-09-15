@@ -5,18 +5,14 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/m-row/finder-example/model"
-	"github.com/m-row/finder-example/models/permission"
-	"github.com/m-row/finder-example/models/role"
-	"github.com/m-row/finder-example/models/user"
+	"github.com/m-row/finder-example/models/category"
 )
 
 type Models struct {
 	DB *sqlx.DB
 	QB *squirrel.StatementBuilderType
 
-	User       *user.Queries
-	Role       *role.Queries
-	Permission *permission.Queries
+	Category *category.Queries
 }
 
 func Setup(
@@ -40,8 +36,6 @@ func Setup(
 		DB: db,
 		QB: &qb,
 
-		User:       user.New(d),
-		Role:       role.New(d),
-		Permission: permission.New(d),
+		Category: category.New(d),
 	}
 }

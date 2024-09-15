@@ -11,7 +11,7 @@ import (
 )
 
 // OpenSQLX function returns a sqlx.DB connection.
-func OpenSQLX(connectionString string) (*sqlx.DB, error) {
+func OpenSQLX() (*sqlx.DB, error) {
 	maxConn, err := strconv.Atoi(os.Getenv("DB_MAX_CONNECTIONS"))
 	if err != nil {
 		return nil, errors.New("missing env variable: DB_MAX_CONNECTIONS")
@@ -30,7 +30,7 @@ func OpenSQLX(connectionString string) (*sqlx.DB, error) {
 	db, err := sqlx.ConnectContext(
 		context.Background(),
 		"pgx",
-		connectionString,
+		os.Getenv("CONNECTION_STRING"),
 	)
 	if err != nil {
 		return nil, err
