@@ -7,8 +7,7 @@ import (
 	"github.com/m-row/finder-example/controller"
 )
 
-func (app *Application) Routes(e *echo.Echo, isTest bool) http.Handler {
-	// API / V1 / standard setup ----------------------------------------------
+func (app *Application) Routes(e *echo.Echo) http.Handler {
 	v1 := e.Group("/api/v1")
 
 	deps := &controller.RouterDependencies{

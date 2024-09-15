@@ -18,7 +18,7 @@ func (app *Application) Serve(e *echo.Echo) error {
 	port := os.Getenv("PORT")
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", port),
-		Handler:      app.Routes(e, false),
+		Handler:      app.Routes(e),
 		IdleTimeout:  time.Minute,
 		ErrorLog:     log.New(os.Stdout, "", 0),
 		ReadTimeout:  10 * time.Second,

@@ -8,7 +8,7 @@ import (
 
 // RouterDependencies centralized router grouping dependencies
 type RouterDependencies struct {
-	// E echo router group usually the /api/v1 group
+	// E echo router group eg: /api/v1
 	E *echo.Group
 }
 

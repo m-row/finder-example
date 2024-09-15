@@ -11,12 +11,6 @@ import (
 	"github.com/m-row/finder-example/models"
 )
 
-var (
-	CommitCount    = "0"
-	CommitDescribe = "dev"
-	Version        = "1." + CommitCount + "." + CommitDescribe
-)
-
 type Application struct {
 	Controllers *controllers.Controllers
 	DB          *sqlx.DB

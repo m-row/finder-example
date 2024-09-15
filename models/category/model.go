@@ -55,7 +55,6 @@ func (m *Model) SearchFields() *[]string {
 	return &[]string{
 		m.DefaultSearch(),
 		"name->>'en'",
-		"code",
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 
 func GlobalErrorHandler(err error, ctx echo.Context) {
 	code := http.StatusInternalServerError
-	if he, ok := err.(*echo.HTTPError); ok { //nolint:errorlint // uncomparable
+	if he, ok := err.(*echo.HTTPError); ok {
 		code = he.Code
 	}
 	message := "unhandled error"
