@@ -2,6 +2,7 @@ package category
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"time"
 
@@ -15,10 +16,7 @@ import (
 type Model struct {
 	ID            uuid.UUID   `db:"id"              json:"id"`
 	Name          types.JSONB `db:"name"            json:"name"`
-	Img           *string     `db:"img"             json:"img"`
-	Thumb         *string     `db:"thumb"           json:"thumb"`
 	Depth         int         `db:"depth"           json:"depth"`
-	Sort          int         `db:"sort"            json:"sort"`
 	IsDisabled    bool        `db:"is_disabled"     json:"is_disabled"`
 	IsFeatured    bool        `db:"is_featured"     json:"is_featured"`
 	ParentID      *uuid.UUID  `db:"parent_id"       json:"-"`
@@ -77,66 +75,11 @@ func (m *Model) Initialize(v url.Values, conn finder.Connection) bool {
 	return isInsert
 }
 
-// HasImage -------------------------------------------------------------------
-
-func (m *Model) GetImg() *string {
-	return m.Img
-}
-
-func (m *Model) SetImg(name *string) {
-	m.Img = name
-}
-
-func (m *Model) GetThumb() *string {
-	return m.Thumb
-}
-
-func (m *Model) SetThumb(name *string) {
-	m.Thumb = name
-} // HasImage interface end
-
-// Utilities ------------------------------------------------------------------
-
-// func (m *Model) MergeAndValidate(v *validator.Validator) bool {
-// 	m.Initialize(v.Data.Values, v.DB)
-// 	v.AssignString("code", &m.Code)
-// 	v.UnmarshalInto("name", &m.Name)
-// 	v.AssignBool("is_disabled", &m.IsDisabled)
-// 	v.AssignBool("is_featured", &m.IsFeatured)
-// 	v.AssignInt("sort", &m.Sort)
-//
-// 	if err := v.AssignImage("img", m, false); err != nil {
-// 		v.Check(false, "img", err.Error())
-// 	}
-//
-// 	m.BusinessID = v.AssignUUID(
-// 		"business_id",
-// 		"businesses",
-// 		m.BusinessID,
-// 		false,
-// 		ScopeAdmin,
-// 	)
-// 	// parent,super_parent and depth assignment
-// 	v.UnmarshalInto("parent", &m.Parent)
-// 	if m.Parent.ID != nil {
-// 		if *m.Parent.ID == m.ID {
-// 			v.Check(false, "parent.id", v.T.ValidateCategoryParent())
-// 		} else {
-// 			if err := m.AssignSuperParent(v.DB); err != nil {
-// 				v.Check(false, "parent.id", err.Error())
-// 			}
-// 		}
-// 	}
-//
-// 	v.ValidateModelSchema(m, v.Schema)
-// 	return v.Valid()
-// }
-
 // AssignSuperParent gets parent super_parent and depth assigned to body.
-func (m *Model) AssignSuperParent(db finder.Connection) error {
+func (m *Model) AssignSuperParent(conn finder.Connection) error {
 	if m.Parent.ID != nil {
 		var parent Model
-		if err := db.GetContext(
+		if err := conn.GetContext(
 			context.Background(),
 			&parent,
 			`
@@ -159,6 +102,11 @@ func (m *Model) AssignSuperParent(db finder.Connection) error {
 			m.SuperParent.ID = &parent.ID
 		} else {
 			m.SuperParent.ID = parent.SuperParentID
+		}
+		if m.Parent.ID != nil {
+			if *m.Parent.ID == m.ID {
+				return errors.New("category can't be a parent to itself")
+			}
 		}
 		m.Depth = parent.Depth + 1
 	}

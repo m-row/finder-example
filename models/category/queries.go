@@ -2,12 +2,10 @@ package category
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/m-row/finder-example/model"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/m-row/finder"
 )
@@ -17,7 +15,6 @@ var inserts = &[]string{
 	"name",
 	"parent_id",
 	"super_parent_id",
-	"sort",
 	"depth",
 	"is_disabled",
 	"is_featured",
@@ -29,16 +26,13 @@ func buildInput(category *Model) (*[]any, error) {
 		category.Name,
 		category.Parent.ID,
 		category.SuperParent.ID,
-		category.Sort,
 		category.Depth,
 		category.IsDisabled,
 		category.IsFeatured,
 	}
-
 	if len(*input) != len(*inserts) {
 		return nil, finder.ErrInputLengthMismatch(input, inserts)
 	}
-
 	return input, nil
 }
 
@@ -62,8 +56,7 @@ func selects(alias string) *[]string {
 }
 
 type WhereScope struct {
-	IsAdmin          bool
-	SortBeforeUpdate int
+	IsAdmin bool
 }
 
 func wheres(alias string, ws *WhereScope) *[]squirrel.Sqlizer {
@@ -121,6 +114,9 @@ func (m *Queries) GetOne(
 }
 
 func (m *Queries) CreateOne(created *Model, conn finder.Connection) error {
+	if err := created.AssignSuperParent(conn); err != nil {
+		return err
+	}
 	input, err := buildInput(created)
 	if err != nil {
 		return err
@@ -134,10 +130,7 @@ func (m *Queries) CreateOne(created *Model, conn finder.Connection) error {
 		Joins:      joins("c1"),
 		Selects:    selects("c1"),
 	}
-	if err := finder.CreateOne(created, c); err != nil {
-		return err
-	}
-	return m.fixAndSortOnInsert(created, conn)
+	return finder.CreateOne(created, c)
 }
 
 func (m *Queries) UpdateOne(
@@ -145,6 +138,9 @@ func (m *Queries) UpdateOne(
 	ws *WhereScope,
 	conn finder.Connection,
 ) error {
+	if err := updated.AssignSuperParent(conn); err != nil {
+		return err
+	}
 	input, err := buildInput(updated)
 	if err != nil {
 		return err
@@ -163,32 +159,7 @@ func (m *Queries) UpdateOne(
 			Value: updated.UpdatedAt,
 		},
 	}
-	if err := finder.UpdateOne(updated, c); err != nil {
-		return err
-	}
-	if ws.SortBeforeUpdate < updated.Sort {
-		if err := m.changeSortInUpdate(
-			ws.SortBeforeUpdate+1,
-			updated.Sort+1,
-			updated.Parent.ID,
-			updated.Depth,
-			false,
-		); err != nil {
-			return err
-		}
-	}
-	if ws.SortBeforeUpdate > updated.Sort {
-		if err := m.changeSortInUpdate(
-			updated.Sort,
-			ws.SortBeforeUpdate,
-			updated.Parent.ID,
-			updated.Depth,
-			true,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
+	return finder.UpdateOne(updated, c)
 }
 
 func (m *Queries) DeleteOne(
@@ -197,32 +168,14 @@ func (m *Queries) DeleteOne(
 	conn finder.Connection,
 ) error {
 	c := &finder.ConfigDelete{
-		DB:         m.DB,
+		DB:         conn,
 		QB:         m.QB,
 		TableAlias: "c1",
 		Joins:      joins("c1"),
 		Wheres:     wheres("c1", ws),
 		Selects:    selects("c1"),
 	}
-	if err := finder.DeleteOne(deleted, c); err != nil {
-		return err
-	}
-	if _, err := conn.ExecContext(
-		context.Background(),
-		`
-           UPDATE categories 
-              SET sort = sort - 1 
-            WHERE parent_id = $1 
-              AND depth = $2 
-              AND sort > $3
-        `,
-		deleted.Parent.ID,
-		deleted.Depth,
-		deleted.Sort,
-	); err != nil {
-		return err
-	}
-	return nil
+	return finder.DeleteOne(deleted, c)
 }
 
 func (m *Queries) HasChildren(category *Model) (bool, error) {
@@ -245,121 +198,4 @@ func (m *Queries) HasChildren(category *Model) (bool, error) {
 		return count > 0, err
 	}
 	return count > 0, nil
-}
-
-func (m *Queries) changeSortInUpdate(
-	starter, length int,
-	parentID *uuid.UUID,
-	depth int,
-	isIncrease bool,
-) error {
-	var valuesSorted []int
-	for i := starter; i < length; i++ {
-		valuesSorted = append(valuesSorted, i)
-	}
-
-	var expression string
-	if isIncrease {
-		expression = "sort + 1"
-	} else {
-		expression = "sort - 1"
-	}
-
-	query, args, err := m.QB.Update("categories").
-		Set("sort", squirrel.Expr(expression)).
-		Where(squirrel.Eq{"sort": valuesSorted}).
-		Where("parent_id = ?", parentID).
-		Where("depth = ?", depth).
-		ToSql()
-	if err != nil {
-		return err
-	}
-
-	if _, err := m.DB.ExecContext(
-		context.Background(),
-		query,
-		args...,
-	); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (m *Queries) fixAndSortOnInsert(
-	created *Model,
-	conn finder.Connection,
-) error {
-	var inSequence bool
-	if err := conn.GetContext(
-		context.Background(),
-		&inSequence,
-		`
-			SELECT
-                -- reducing 2 has to do with the newly inserted item
-				COALESCE(count(*)-2 = MAX(sort), false) AS inSequence
-			FROM
-				categories
-			WHERE
-				parent_id = $1 
-                AND depth = $2
-		`,
-		created.Parent.ID,
-		created.Depth,
-	); err != nil {
-		return err
-	}
-
-	if inSequence {
-		if _, err := conn.ExecContext(
-			context.Background(),
-			`
-               UPDATE categories 
-                  SET sort = sort + 1 
-                WHERE parent_id = $2 
-                  AND depth = $3
-                  AND id != $1
-            `,
-			created.ID,
-			created.Parent.ID,
-			created.Depth,
-		); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	var ids []string
-	if err := conn.SelectContext(
-		context.Background(),
-		&ids,
-		`
-            SELECT id 
-            FROM categories 
-            WHERE parent_id = $1 
-                  AND depth = $2 
-            ORDER BY sort
-        `,
-		created.Parent.ID,
-		created.Depth,
-	); err != nil {
-		return err
-	}
-	queryUpdate := ""
-	if len(ids) > 0 {
-		for i, id := range ids {
-			queryUpdate += fmt.Sprintf(
-				`UPDATE categories SET sort = %d WHERE id = '%s';`,
-				i,
-				id,
-			)
-		}
-		if _, err := conn.ExecContext(
-			context.Background(),
-			queryUpdate,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
 }

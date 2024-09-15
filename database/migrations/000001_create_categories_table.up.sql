@@ -13,13 +13,10 @@ CREATE TABLE categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name JSONB NOT NULL,
     depth INTEGER NOT NULL DEFAULT 0,
-    sort INTEGER NOT NULL DEFAULT 0,
     is_disabled BOOLEAN NOT NULL DEFAULT FALSE,
     is_featured BOOLEAN NOT NULL DEFAULT FALSE,
     parent_id UUID,
     super_parent_id UUID,
-    img TEXT,
-    thumb TEXT,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
 

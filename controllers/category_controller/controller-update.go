@@ -9,20 +9,15 @@ import (
 
 func (c *Controllers) Update(ctx echo.Context) error {
 	var result category.Model
-	// v, err := c.GetValidator(ctx, result.ModelName())
-	// if err != nil {
-	// 	return err
-	// }
 	if err := c.ReadUUIDParam(&result.ID, ctx); err != nil {
 		return err
 	}
 	if err := c.Models.Category.GetOne(&result, nil); err != nil {
 		return err
 	}
-	// if valid := result.MergeAndValidate(v); !valid {
-	// 	defer v.DeleteNewPicture()
-	// 	return c.APIErr.InputValidation(ctx, v)
-	// }
+	if err := ctx.Bind(&result); err != nil {
+		return err
+	}
 	// Start transacting
 	tx, err := c.Models.DB.Beginx()
 	if err != nil {

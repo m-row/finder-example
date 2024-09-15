@@ -3,6 +3,7 @@ package category_controller
 import (
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/m-row/finder-example/models/category"
 )
@@ -11,6 +12,9 @@ func (c *Controllers) Store(ctx echo.Context) error {
 	var result category.Model
 	if err := ctx.Bind(&result); err != nil {
 		return err
+	}
+	if result.ID == uuid.Nil {
+		result.ID = uuid.New()
 	}
 	// Start transacting
 	tx, err := c.Models.DB.Beginx()
